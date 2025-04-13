@@ -1,0 +1,17 @@
+{
+  "name": "space-platform-docks",
+  "version": "0.0.0",
+  "title": "Space Platform Docks",
+  "description": "Dock two platforms together and exchange resources.",
+  "author": "petrak@",
+  "factorio_version": "2.0",
+  "dependencies": [
+    "space-age >= 2.0.0"
+  ],
+  "quality_required": false,
+  "space_travel_required": true,
+  "spoiling_required": false,
+  "freezing_required": false,
+  "segmented_units_required": false,
+  "expansion_shaders_required": false
+}
