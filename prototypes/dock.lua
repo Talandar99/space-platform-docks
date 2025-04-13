@@ -1,3 +1,10 @@
+local nice_fluidbox = {
+  -- pipe_picture = assembler2pipepictures(),
+  pipe_covers = pipecoverspictures(),
+  volume = 1000,
+  secondary_draw_orders = { north = -1 },
+}
+
 data:extend{
   {
     type = "item",
@@ -22,14 +29,17 @@ data:extend{
     collision_box = {{-5, -3}, {5, 3}},
     tile_width = 10,
     tile_height = 6,
-    -- this is what the asteroid collector does, idfk
+    build_grid_size = 2,
+    -- this is what the collector does
+    -- using the thruster's mask makes it unable to be placed???
+    -- i genuinely have no idea
     collision_mask = { layers = {
-      is_object = true, is_lower_object = true, transport_belt = true
+      is_lower_object=true, is_object=true, transport_belt=true
     }},
     tile_buildability_rules = {
       -- Support
       {
-        area = {{-4.9, 0.0}, {4.9, 2.9}},
+        area = {{-4.9, 0.1}, {4.9, 2.9}},
         required_tiles = {layers = {ground_tile = true}},
         colliding_tiles = {layers = {empty_space = true}},
         remove_on_collision = true,
@@ -43,10 +53,34 @@ data:extend{
       -- Giant exclusion zone to prevent any fun from happening on the side
       -- that it is sticking out on.
       {
-        area = {{-50, -50}, {50, -1.9}},
+        area = {{-50, -50}, {50, -2.9}},
         required_tiles = {layers = {empty_space = true}},
         remove_on_collision = true,
       },
+    },
+
+    -- Fluidboxes for teleporting later
+    fluid_boxes = {
+      util.merge({
+        nice_fluidbox,
+        {
+          production_type = "input",
+          pipe_connections = {{
+            flow_direction="input",
+            direction=defines.direction.south, position={-2.5, 2.5}
+          }}
+        }
+      }),
+      util.merge({
+        nice_fluidbox,
+        {
+          production_type = "output",
+          pipe_connections = {{
+            flow_direction="output",
+            direction=defines.direction.south, position={2.5, 2.5}
+          }}
+        }
+      }),
     },
 
     graphics_set = require("prototypes/dock-graphics"),

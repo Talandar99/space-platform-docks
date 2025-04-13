@@ -1,3 +1,6 @@
+-- TODO: put the part that's "glued to the ground"
+-- in an integration layer.
+-- Kind of jank for now but it works
 local graphics = {
   animation = {
     north = {
