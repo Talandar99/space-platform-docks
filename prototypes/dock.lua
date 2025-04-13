@@ -1,3 +1,5 @@
+local dock_aux = require "prototypes/dock-aux"
+
 local nice_fluidbox = {
   -- pipe_picture = assembler2pipepictures(),
   pipe_covers = pipecoverspictures(),
@@ -83,7 +85,10 @@ data:extend{
       }),
     },
 
-    graphics_set = require("prototypes/dock-graphics"),
+    circuit_wire_max_distance = default_circuit_wire_max_distance,
+    circuit_connector = dock_aux.circuit_connectors,
+
+    graphics_set = dock_aux.graphics,
 
     energy_usage = "180kW",
     energy_source = {
