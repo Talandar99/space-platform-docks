@@ -37,7 +37,7 @@ local graphics = {
 local make_cc_entry = function(x, y)
   return {
     variation=4,
-    main_offset=util.by_pixel(x, y), shadow_offset=util.by_pixel(x, y),
+    main_offset={x,y}, shadow_offset={x,y},
     show_shadow = false
   }
 end
@@ -45,10 +45,10 @@ local circuit_connectors = circuit_connector_definitions.create_vector(
   universal_connector_template,
   -- NESW
   {
-    make_cc_entry(0, 2.5),
-    make_cc_entry(-2.5, 0),
-    make_cc_entry(0, -2.5),
     make_cc_entry(2.5, 0),
+    make_cc_entry(0, -2.5),
+    make_cc_entry(-2.5, 0),
+    make_cc_entry(0, 2.5),
   }
 )
 return {

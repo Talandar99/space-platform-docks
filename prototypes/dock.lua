@@ -24,7 +24,10 @@ data:extend{
     type = "furnace",
     name = "pkspd-platform-dock",
     icon = "__base__/graphics/icons/rocket-silo.png",
-    flags = {"placeable-neutral", "placeable-player", "player-creation"},
+    flags = {
+      "placeable-neutral", "placeable-player", "player-creation",
+      "get-by-unit-number",
+    },
     minable = {mining_time = 1.0, result = "pkspd-platform-dock"},
     -- The default direction is north
     selection_box = {{-5, -3}, {5, 3}},

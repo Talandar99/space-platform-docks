@@ -1,6 +1,16 @@
 require "__core__/lualib/util"
 
-local function find_helpers(dock)
+local linklib = {}
+
+linklib.find_linked_dock = function(dock)
+  if not storage.linked_docks then return nil end
+  if not dock.valid or dock.name ~= "pkspd-platform-dock" then return nil end
+  local id = storage.linked_docks[dock.unit_number]
+  return game.get_entity_by_unit_number(id)
+end
+
+linklib.find_helpers = function(dock)
+  if not dock.valid then error("Dock was invalid") end
   if dock.name ~= "pkspd-platform-dock" then
     error("Only call find_helpers on platform docks, instead got " .. tostring(dock))
   end
@@ -8,7 +18,7 @@ local function find_helpers(dock)
   local out = {}
   local helpers = dock.surface.find_entities_filtered{
     area = dock.bounding_box,
-    name = {"pkspd-linked-belt", }
+    name = {"pkspd-linked-belt", "pkspd-dock-circuit-bridge"}
   }
   for _,helper in ipairs(helpers) do
     if helper.name == "pkspd-linked-belt" then
@@ -17,6 +27,8 @@ local function find_helpers(dock)
       else
         out.output_belt = helper
       end
+    elseif helper.name == "pkspd-dock-circuit-bridge" then
+      out.circuit_bridge = helper
     end
   end
 
@@ -24,7 +36,12 @@ local function find_helpers(dock)
 end
 
 -- Returns either `nil` or an error localised string
-local function link_docks(dock_a, dock_b)
+linklib.link_docks = function(dock_a, dock_b)
+  local a_other = linklib.find_linked_dock(dock_a)
+  local b_other = linklib.find_linked_dock(dock_b)
+  if a_other then return "Dock A was already linked to " .. tostring(b_other) end
+  if b_other then return "Dock A was already linked to " .. tostring(a_other) end
+  
   local surface_a = dock_a.surface
   local surface_b = dock_b.surface
   -- jackass
@@ -43,18 +60,46 @@ local function link_docks(dock_a, dock_b)
   helpers_b.input_belt.connect_linked_belts(helpers_a.output_belt)
 
   -- Link wires
-  local wires_a = dock_a.get_wire_connectors()
-  local wires_b = dock_b.get_wire_connectors()
+  local wires_a = helpers_a.circuit_bridge.get_wire_connectors()
+  local wires_b = helpers_a.circuit_bridge.get_wire_connectors()
   for _,wirecolor in ipairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
     wires_a[wirecolor].connect_to(
       wires_b[wirecolor], false, defines.wire_origin.script
     )
   end
 
+  -- Associate in storage dict
+  if not storage.linked_docks then storage.linked_docks = {} end
+  storage.linked_docks[dock_a.unit_number] = dock_b
+  storage.linked_docks[dock_b.unit_number] = dock_a
+
   return nil
 end
 
-return {
-  find_helpers = find_helpers,
-  link_docks = link_docks,  
-}
+-- Returns the dock it was unlinked from, or nil
+linklib.unlink_dock = function(dock_a)
+  local dock_b = linklib.find_linked_dock(dock_a)
+  if not dock_b then return nil end
+  
+  -- Link belts
+  local helpers_a = linklib.find_helpers(dock_a)
+  local helpers_b = linklib.find_helpers(dock_b)
+  helpers_a.input_belt.disconnect_linked_belts()
+  helpers_b.input_belt.disconnect_linked_belts()
+
+  -- Link wires
+  local wires_a = dock_a.get_wire_connectors()
+  local wires_b = dock_b.get_wire_connectors()
+  for _,wirecolor in ipairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
+    wires_a[wirecolor].disconnect_from(
+      wires_b[wirecolor], defines.wire_origin.script
+    )
+  end
+
+  storage.linked_docks[dock_a.unit_number] = nil
+  storage.linked_docks[dock_b.unit_number] = nil
+
+  return dock_b
+end
+
+return linklib
