@@ -2,6 +2,47 @@ require "__core__/lualib/util"
 
 local linklib = {}
 
+-- Returns either nil if it's ok, or a localised string error
+linklib.could_link_problem = function(dock_a, dock_b)
+  if not dock_a.valid then return "Dock A was invalid?!" end
+  if not dock_b.valid then return "Dock B was invalid?!" end
+  
+  local a_other = linklib.find_linked_dock(dock_a)
+  local b_other = linklib.find_linked_dock(dock_b)
+  if a_other then 
+    return tostring(dock_a) .. " was already linked to " .. tostring(a_other)
+  end
+  if b_other then 
+    return tostring(dock_b) .. " was already linked to " .. tostring(b_other)
+  end
+
+  if surface_a == surface_b then 
+    return "Docks were on the same surface " .. tostring(surface_a)
+  end
+  if not surface_a.platform then 
+    return tostring(dock_a) .. " was not on a platform"
+  end
+  if not surface_b.platform then 
+    return tostring(dock_b) .. " was not on a platform"
+  end
+
+  if dock_a.direction ~= util.oppositedirection(dock_b.direction) then
+    return tostring(dock_a) .. " and " .. tostring(dock_b) ..
+      " were not pointing in compatible directions (should be opposite)"
+  end
+
+  -- Nerd emoji!
+  local force_a = dock_a.force
+  local force_b = dock_b.force
+  if not force_a.is_friend(force_b) then
+    return tostring(dock_a) .. " and " .. tostring(dock_b) ..
+      " belong to forces that are not friendly"
+  end
+
+  -- yay!
+  return nil
+end
+
 linklib.find_linked_dock = function(dock)
   if not storage.linked_docks then return nil end
   if not dock.valid or dock.name ~= "pkspd-platform-dock" then return nil end
@@ -37,21 +78,9 @@ end
 
 -- Returns either `nil` or an error localised string
 linklib.link_docks = function(dock_a, dock_b)
-  local a_other = linklib.find_linked_dock(dock_a)
-  local b_other = linklib.find_linked_dock(dock_b)
-  if a_other then return "Dock A was already linked to " .. tostring(b_other) end
-  if b_other then return "Dock A was already linked to " .. tostring(a_other) end
-  
-  local surface_a = dock_a.surface
-  local surface_b = dock_b.surface
-  -- jackass
-  if surface_a == surface_b then return "Docks were on the same surface" end
-  if not surface_a.platform then return "Dock A was not on a platform" end
-  if not surface_b.platform then return "Dock B was not on a platform" end
-
-  if dock_a.direction ~= util.oppositedirection(dock_b.direction) then
-    return "Docks A and B were not pointing in the right directions (should be opposite)"
-  end
+  local err = linklib.could_link_problem(dock_a, dock_b)
+  -- golang moment
+  if err then return err end
 
   -- Link belts
   local helpers_a = find_helpers(dock_a)

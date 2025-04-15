@@ -1,5 +1,7 @@
 local dock_aux = require "prototypes/dock-aux"
 
+local sounds = require "__base__/prototypes/entity/sounds"
+
 local nice_fluidbox = {
   -- pipe_picture = assembler2pipepictures(),
   pipe_covers = pipecoverspictures(),
@@ -92,6 +94,8 @@ data:extend{
     circuit_connector = dock_aux.circuit_connectors,
 
     graphics_set = dock_aux.graphics,
+    open_sound = sounds.metal_large_open,
+    close_sound = sounds.metal_large_close,
 
     energy_usage = "180kW",
     energy_source = {

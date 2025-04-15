@@ -10,6 +10,8 @@ local function spawn_helper_entities(evt)
     return
   end
 
+  entity.rotatable = false
+
   -- in, out
   -- resources travel clockwise
   local belt_poses_table = {
