@@ -2,10 +2,26 @@ require "__core__/lualib/util"
 
 local linklib = {}
 
+linklib.can_platform_link = function(platform)
+  local ok =
+    platform
+    and platform.valid
+    and platform.space_location
+    and (platform.state == defines.space_platform_state.waiting_at_station or platform.state == defines.space_platform_state.paused)
+
+  -- squish to boolean
+  return not not ok
+end
+
 -- Returns either nil if it's ok, or a localised string error
+-- TODO localise these things
 linklib.could_link_problem = function(dock_a, dock_b)
   if not dock_a.valid then return "Dock A was invalid?!" end
   if not dock_b.valid then return "Dock B was invalid?!" end
+
+  if dock_a == dock_b then
+    return "Cannot link " .. tostring(dock_a) .. " to itself"
+  end
   
   local a_other = linklib.find_linked_dock(dock_a)
   local b_other = linklib.find_linked_dock(dock_b)
@@ -16,19 +32,30 @@ linklib.could_link_problem = function(dock_a, dock_b)
     return tostring(dock_b) .. " was already linked to " .. tostring(b_other)
   end
 
+  if dock_a.direction ~= util.oppositedirection(dock_b.direction) then
+    return tostring(dock_a) .. " and " .. tostring(dock_b) ..
+      " were not pointing in compatible directions (should be opposite)"
+  end
+
+  local surface_a, surface_b = dock_a.surface, dock_b.surface
   if surface_a == surface_b then 
     return "Docks were on the same surface " .. tostring(surface_a)
   end
   if not surface_a.platform then 
-    return tostring(dock_a) .. " was not on a platform"
+    return tostring(dock_a) .. " was not on a platform(!?)"
   end
   if not surface_b.platform then 
-    return tostring(dock_b) .. " was not on a platform"
+    return tostring(dock_b) .. " was not on a platform(!?)"
   end
-
-  if dock_a.direction ~= util.oppositedirection(dock_b.direction) then
+  if not linklib.can_platform_link(surface_a.platform) then
+    return tostring(dock_a) .. " was not on a platform that can link"
+  end
+  if not linklib.can_platform_link(surface_b.platform) then
+    return tostring(dock_b) .. " was not on a platform that can link"
+  end
+  if surface_a.platform.space_location ~= surface_b.platform.space_location then
     return tostring(dock_a) .. " and " .. tostring(dock_b) ..
-      " were not pointing in compatible directions (should be opposite)"
+      " were not in the same body's orbit"
   end
 
   -- Nerd emoji!
@@ -43,11 +70,47 @@ linklib.could_link_problem = function(dock_a, dock_b)
   return nil
 end
 
+linklib.find_linkable_docks = function(dock)
+  local space_loc = dock.surface.platform and dock.surface.platform.space_location
+  if not space_loc then return {} end
+
+  local out = {}
+
+  -- Irritatingly it doesn't look like there's a good way to get all space
+  -- locations and the platforms orbiting above.
+  for _,force in pairs(game.forces) do
+    for _,platform in pairs(force.platforms) do
+      if not linklib.can_platform_link(platform) then goto continue end
+      if platform == dock.surface.platform then goto continue end
+      -- game.print("Checking " .. tostring(platform))
+
+      -- The more we can get the game engine to filter, rather than do ourself,
+      -- the quicker.
+      local maybe_okays = platform.surface.find_entities_filtered{
+        name="pkspd-platform-dock",
+        direction=util.oppositedirection(dock.direction),
+        to_be_deconstructed=false,
+      }
+
+      for _,mb_ok in ipairs(maybe_okays) do
+        local problem = linklib.could_link_problem(dock, mb_ok)
+        -- game.print("Checking " .. tostring(mb_ok) .. ", " .. tostring(problem))
+        if problem == nil then
+          table.insert(out, mb_ok)
+        end
+      end
+
+      ::continue::
+    end
+  end
+
+  return out
+end
+
 linklib.find_linked_dock = function(dock)
   if not storage.linked_docks then return nil end
   if not dock.valid or dock.name ~= "pkspd-platform-dock" then return nil end
-  local id = storage.linked_docks[dock.unit_number]
-  return game.get_entity_by_unit_number(id)
+  return storage.linked_docks[dock.unit_number]
 end
 
 linklib.find_helpers = function(dock)
@@ -83,8 +146,8 @@ linklib.link_docks = function(dock_a, dock_b)
   if err then return err end
 
   -- Link belts
-  local helpers_a = find_helpers(dock_a)
-  local helpers_b = find_helpers(dock_b)
+  local helpers_a = linklib.find_helpers(dock_a)
+  local helpers_b = linklib.find_helpers(dock_b)
   helpers_a.input_belt.connect_linked_belts(helpers_b.output_belt)
   helpers_b.input_belt.connect_linked_belts(helpers_a.output_belt)
 
