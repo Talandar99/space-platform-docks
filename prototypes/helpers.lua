@@ -1,5 +1,13 @@
 local whocares_icon = "__core__/graphics/questionmark.png"
 
+local nice_fluidbox = {
+  -- pipe_picture = assembler2pipepictures(),
+  pipe_covers = pipecoverspictures(),
+  volume = 0,
+  secondary_draw_orders = { north=-1, south=1 },
+}
+local fluid_throughput = 10
+
 data:extend{
   util.merge({
     data.raw["linked-belt"]["linked-belt"],
@@ -14,6 +22,20 @@ data:extend{
       icon = whocares_icon,
     }
   }),
+  -- Disable unless there's a linked dock
+  -- to avoid fluid getting caught in the pump.
+  -- {
+  --   type = "pump",
+  --   name = "pkspd-linked-pipe-input",
+  --   flags = {
+  --     "placeable-player", "player-creation",
+  --     "not-rotatable", "not-on-map", "hide-alt-info",
+  --     "placeable-off-grid"
+  --   },
+  --   hidden = true,
+  --   selectable_in_game = false,
+  --   icon = whocares_icon,
+  -- },
   -- Carries bridged signals across the dock.
   -- https://github.com/robot256/factorio_shortwave_fix/blob/main/control.lua
   -- https://mods.factorio.com/mod/circuit-wire-poles

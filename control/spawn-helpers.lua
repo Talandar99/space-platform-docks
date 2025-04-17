@@ -59,6 +59,7 @@ local function spawn_helper_entities(evt)
       position = math2d.position.add(entity.position, link_poses_table[entity.direction]),
     },
   }))
+
   -- game.print(
   --   "Input " .. tostring(belt_in) .. 
   --   "; output " .. tostring(belt_out) ..

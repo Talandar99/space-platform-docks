@@ -161,6 +161,18 @@ linklib.link_docks = function(dock_a, dock_b)
     )
   end
 
+  -- Link up fluidboxen
+  -- local fb_a_in = dock_a.fluidbox[1]
+  -- local fb_a_out = dock_a.fluidbox[2]
+  -- local fb_b_in = dock_b.fluidbox[1]
+  -- local fb_b_out = dock_b.fluidbox[2]
+  -- fb_a_in.get_pipe_connections(1).target = fb_b_out.get_pipe_connections(1)
+  -- fb_b_in.get_pipe_connections(1).target = fb_a_out.get_pipe_connections(1)
+  -- dock_a.fluidbox[1] = fb_a_in
+  -- dock_a.fluidbox[2] = fb_a_out
+  -- dock_b.fluidbox[1] = fb_b_in
+  -- dock_b.fluidbox[2] = fb_b_out
+
   -- Associate in storage dict
   local info_a = linklib.dock_info(dock_a)
   local info_b = linklib.dock_info(dock_b)
