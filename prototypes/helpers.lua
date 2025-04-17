@@ -34,4 +34,10 @@ data:extend{
       draw_circuit_wires = true,
     }
   }),
+  -- Used to avoid circular dependency errors
+  -- Fired when we need to re-draw all the guis
+  {
+    type = "custom-event",
+    name = "pkspd-redraw-dock-guis"
+  }
 }

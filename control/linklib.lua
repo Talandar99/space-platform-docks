@@ -23,8 +23,10 @@ linklib.could_link_problem = function(dock_a, dock_b)
     return "Cannot link " .. tostring(dock_a) .. " to itself"
   end
   
-  local a_other = linklib.find_linked_dock(dock_a)
-  local b_other = linklib.find_linked_dock(dock_b)
+  local a_info = linklib.dock_info(dock_a)
+  local b_info = linklib.dock_info(dock_b)
+  local a_other = a_info["other_dock"]
+  local b_other = b_info["other_dock"]
   if a_other then 
     return tostring(dock_a) .. " was already linked to " .. tostring(a_other)
   end
@@ -59,11 +61,16 @@ linklib.could_link_problem = function(dock_a, dock_b)
   end
 
   -- Nerd emoji!
-  local force_a = dock_a.force
-  local force_b = dock_b.force
-  if not force_a.is_friend(force_b) then
+
+  if surface_a.platform.space_location ~= surface_b.platform.space_location then
     return tostring(dock_a) .. " and " .. tostring(dock_b) ..
-      " belong to forces that are not friendly"
+      " were not in the same body's orbit"
+  end
+
+  if a_info["mode"] ~= b_info["mode"] then
+    local loc_a = "pkspd-text.mode-" .. a_info["mode"]
+    local loc_b = "pkspd-text.mode-" .. b_info["mode"]
+    return {"pkspd-text.linkerr-bad-modes", dock_a, loc_a, dock_b, loc_b}
   end
 
   -- yay!
@@ -161,6 +168,13 @@ linklib.link_docks = function(dock_a, dock_b)
   info_b["linked_dock"] = dock_a
   info_b["mode"] = info_a["mode"]
 
+  -- Noise!
+  for _,dock in ipairs{dock_a, dock_b} do
+    -- TODO
+  end
+  -- game.print("Linked " .. tostring(dock_a) .. " and " .. tostring(dock_b))
+  
+  script.raise_event("pkspd-redraw-dock-guis", {})
   return nil
 end
 
@@ -191,13 +205,16 @@ linklib.unlink_dock = function(dock_a)
   info_a["linked_dock"] = nil
   info_b["linked_dock"] = nil
 
+  script.raise_event("pkspd-redraw-dock-guis", {})
   return dock_b
 end
 
 linklib.dock_info = function(dock)
+  if type(dock) == "number" then dock = game.get_entity_by_unit_number(dock) end
   if not dock or not dock.valid or dock.name ~= "pkspd-platform-dock" then
     return nil
   end
+  -- INDEXED BY DOCK NUMBER
   if not storage.dock_info then storage.dock_info = {} end
   if not storage.dock_info[dock.unit_number] then
     storage.dock_info[dock.unit_number] = {}

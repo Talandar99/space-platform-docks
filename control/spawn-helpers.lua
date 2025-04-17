@@ -59,10 +59,10 @@ local function spawn_helper_entities(evt)
       position = math2d.position.add(entity.position, link_poses_table[entity.direction]),
     },
   }))
-  game.print(
-    "Input " .. tostring(belt_in) .. 
-    "; output " .. tostring(belt_out) ..
-    "; controller " .. tostring(controller))
+  -- game.print(
+  --   "Input " .. tostring(belt_in) .. 
+  --   "; output " .. tostring(belt_out) ..
+  --   "; controller " .. tostring(controller))
 
   local dock_info = linklib.dock_info(entity)
   dock_info["mode"] = "manual"
@@ -78,7 +78,7 @@ local function remove_dock(evt)
 
   local helpers = linklib.find_helpers(entity)
   for _ty,helper in pairs(helpers) do
-    game.print("Killing " .. tostring(helper))
+    -- game.print("Killing " .. tostring(helper))
 
     if helper.name == "pkspd-linked-belt" then
       -- Give back any items stuck in the middle

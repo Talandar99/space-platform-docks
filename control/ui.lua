@@ -2,6 +2,7 @@
 
 local ui_lib = require "control/ui-lib"
 local linklib = require "control/linklib"
+local autodock = require "control/autodock"
 
 local dock_ui = {handler_lib = {events={}}}
 
@@ -22,9 +23,8 @@ local function extra_data(player)
 end
 
 local function dock_info_extra(element)
-  local dock = game.get_entity_by_unit_number(
-    ui_lib.find_parent_main_frame(element).tags["tid"]
-  )
+  local dock_id = ui_lib.find_parent_main_frame(element).tags["tid"]
+  local dock = game.get_entity_by_unit_number(dock_id)
   local dock_info = linklib.dock_info(dock)
   local extra = extra_data(element.player_index)
   return dock, dock_info, extra
@@ -89,7 +89,7 @@ local function make_dock_status(parent, dock)
   other_dock_row.style.vertical_align = "center"
   
   local other_dock = linklib.find_linked_dock(dock)
-  local caption
+  local caption, tt
   if other_dock then
     caption = {"pkspd-gui.yes-docked", other_dock.surface.platform.name}
   else
@@ -234,12 +234,15 @@ local function make_whole_gui(evt)
   main_content.add{type="line"}
 
   local side = (dock_info["mode"] == "manual") and "left" or "right"
+  local ams_disabled = dock_info["mode"] == "manual" and dock_info["other_dock"]
   local auto_manual_switch = main_content.add{
     type="switch",
     name="pkspd_dock_auto_manual_switch",
     left_label_caption={"pkspd-gui.manual-mode"},
     right_label_caption={"pkspd-gui.automatic-mode"},
-    switch_state=side
+    switch_state=side,
+    enabled=not ams_disabled,
+    tooltip=(ams_disabled and {"pkspd-gui.tt-cannot-auto-in-manual-mode"} or nil)
   }
   extra["auto_manual_switch"] = auto_manual_switch
 
@@ -273,11 +276,13 @@ end
 
 local function handle_auto_manual_switch(switch)
   local mode = (switch.switch_state == "left") and "manual" or "automatic"
-  local dock = game.get_entity_by_unit_number(
-    ui_lib.find_parent_main_frame(switch).tags["tid"]
-  )
-  local dock_info = linklib.dock_info(dock)
+  local dock, dock_info, _ = dock_info_extra(switch)
   dock_info.mode = mode
+  if mode == "manual" then
+    linklib.unlink_dock(dock)
+  else
+    autodock.try_autodock(dock)
+  end
 end
 
 local function handle_autodock_picker(picker)
@@ -348,12 +353,6 @@ local function handle_do_dock(elt)
   dock_ui.update_ui(main_frame)
 end
 
-dock_ui.update_uis = function()
-  for _,player in pairs(game.connected_players) do
-    local gui = player.gui.screen["pkspd_dock"]
-    if gui then dock_ui.update_ui(gui) end
-  end
-end
 dock_ui.update_ui = function(gui)
   local dock = game.get_entity_by_unit_number(gui.tags["tid"])
   if not dock then
@@ -371,8 +370,10 @@ dock_ui.update_ui = function(gui)
   local mode = dock_info["mode"]
   local side = (mode == "manual") and "left" or "right"
   extra["auto_manual_switch"].switch_state = side
-  extra["manual_popdown_button"].enabled =
-    (mode == "manual" and other_dock == nil)
+  local mpd_enabled = other_dock == nil
+  extra["manual_popdown_button"].enabled = mpd_enabled
+  extra["manual_popdown_button"].tooltip =
+    (not mpd_enabled) and {"pkspd-gui.tt-cannot-manual-dock-twice"} or nil
 
   -- TODO: updating dock list in real time
 end
@@ -382,9 +383,7 @@ dock_ui.handler_lib.events[defines.events.on_gui_click] = function(event)
   local elt = event.element
   if not elt or not elt.valid then return end
 
-  if elt.name == "pkspd_dock_auto_manual_switch" then
-    handle_auto_manual_switch(elt)
-  elseif elt.name == "pkspd_undock" then
+  if elt.name == "pkspd_undock" then
     handle_undock(elt)
   elseif elt.name == "pkspd_dock_manual_popdown_button" then
     make_manual_dock_popdown(elt)
@@ -399,6 +398,21 @@ dock_ui.handler_lib.events[defines.events.on_gui_elem_changed] = function(event)
   if not elt or not elt.valid then return end
   if elt.name == "pkspd_dock_autodock_signal" then
     handle_autodock_picker(elt)
+  end
+end
+dock_ui.handler_lib.events[defines.events.on_gui_switch_state_changed] = function(event)
+  local elt = event.element
+  if not elt or not elt.valid then return end
+
+  if elt.name == "pkspd_dock_auto_manual_switch" then
+    handle_auto_manual_switch(elt)
+  end
+end
+
+dock_ui.handler_lib.events["pkspd-redraw-dock-guis"] = function(event)
+  for _,player in pairs(game.connected_players) do
+    local gui = player.gui.screen["pkspd_dock"]
+    if gui then dock_ui.update_ui(gui) end
   end
 end
 
