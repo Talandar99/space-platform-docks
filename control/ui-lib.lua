@@ -1,9 +1,12 @@
+local util = require "__core__/lualib/util"
+
 local ui_lib = {}
 
-ui_lib.new_main_frame = function(player, title_caption)
+ui_lib.new_main_frame = function(player, name, title_caption, tags)
   local main_frame = player.gui.screen.add{
     type = "frame",
-    name = "pkspd_main_frame",
+    name = name,
+    tags = util.merge{{pkspd_main_frame = true}, tags},
     direction = "vertical",
   }
   player.opened = main_frame
@@ -40,7 +43,7 @@ end
 ui_lib.find_parent_main_frame = function(element)
   local it = element
   while it do
-    if it.name == "pkspd_main_frame" then return it end
+    if it.tags["pkspd_main_frame"] then return it end
     it = it.parent
   end
   return nil
@@ -48,11 +51,11 @@ end
 
 local function on_gui_click(event)
   if event.element and event.element.name == "pkspd_x_button" then
-    event.element.parent.parent.destroy()
+    ui_lib.find_parent_main_frame(event.element).destroy()
   end
 end
 local function on_gui_closed(event)
-  if event.element and event.element.name == "pkspd_main_frame" then
+  if event.element and event.element.tags["pkspd_main_frame"] then
     event.element.destroy()
   end
 end

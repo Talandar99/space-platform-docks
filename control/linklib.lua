@@ -107,12 +107,6 @@ linklib.find_linkable_docks = function(dock)
   return out
 end
 
-linklib.find_linked_dock = function(dock)
-  if not storage.linked_docks then return nil end
-  if not dock.valid or dock.name ~= "pkspd-platform-dock" then return nil end
-  return storage.linked_docks[dock.unit_number]
-end
-
 linklib.find_helpers = function(dock)
   if not dock.valid then error("Dock was invalid") end
   if dock.name ~= "pkspd-platform-dock" then
@@ -153,7 +147,7 @@ linklib.link_docks = function(dock_a, dock_b)
 
   -- Link wires
   local wires_a = helpers_a.circuit_bridge.get_wire_connectors()
-  local wires_b = helpers_a.circuit_bridge.get_wire_connectors()
+  local wires_b = helpers_b.circuit_bridge.get_wire_connectors()
   for _,wirecolor in ipairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
     wires_a[wirecolor].connect_to(
       wires_b[wirecolor], false, defines.wire_origin.script
@@ -161,9 +155,11 @@ linklib.link_docks = function(dock_a, dock_b)
   end
 
   -- Associate in storage dict
-  if not storage.linked_docks then storage.linked_docks = {} end
-  storage.linked_docks[dock_a.unit_number] = dock_b
-  storage.linked_docks[dock_b.unit_number] = dock_a
+  local info_a = linklib.dock_info(dock_a)
+  local info_b = linklib.dock_info(dock_b)
+  info_a["linked_dock"] = dock_b
+  info_b["linked_dock"] = dock_a
+  info_b["mode"] = info_a["mode"]
 
   return nil
 end
@@ -173,25 +169,51 @@ linklib.unlink_dock = function(dock_a)
   local dock_b = linklib.find_linked_dock(dock_a)
   if not dock_b then return nil end
   
-  -- Link belts
+  -- Unlink belts
   local helpers_a = linklib.find_helpers(dock_a)
   local helpers_b = linklib.find_helpers(dock_b)
   helpers_a.input_belt.disconnect_linked_belts()
   helpers_b.input_belt.disconnect_linked_belts()
 
-  -- Link wires
+  -- Unlink wires
   local wires_a = dock_a.get_wire_connectors()
   local wires_b = dock_b.get_wire_connectors()
   for _,wirecolor in ipairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
-    wires_a[wirecolor].disconnect_from(
-      wires_b[wirecolor], defines.wire_origin.script
-    )
+    local wire_a = wires_a[wirecolor]
+    local wire_b = wires_b[wirecolor]
+    if wire_a and wire_b then
+      wire_a.disconnect_from(wire_b, defines.wire_origin.script)
+    end
   end
 
-  storage.linked_docks[dock_a.unit_number] = nil
-  storage.linked_docks[dock_b.unit_number] = nil
+  local info_a = linklib.dock_info(dock_a)
+  local info_b = linklib.dock_info(dock_b)
+  info_a["linked_dock"] = nil
+  info_b["linked_dock"] = nil
 
   return dock_b
+end
+
+linklib.dock_info = function(dock)
+  if not dock or not dock.valid or dock.name ~= "pkspd-platform-dock" then
+    return nil
+  end
+  if not storage.dock_info then storage.dock_info = {} end
+  if not storage.dock_info[dock.unit_number] then
+    storage.dock_info[dock.unit_number] = {}
+  end
+  return storage.dock_info[dock.unit_number]
+end
+linklib.find_linked_dock = function(dock) 
+  local info = linklib.dock_info(dock)
+  if not info then return nil end
+  local other = info["linked_dock"]
+  if other and not other.valid then
+    info["linked_dock"] = nil
+    return nil
+  else
+    return other
+  end
 end
 
 return linklib

@@ -3,7 +3,7 @@
 local ui_lib = require "control/ui-lib"
 local linklib = require "control/linklib"
 
-local handler_lib = {events={}}
+local dock_ui = {handler_lib = {events={}}}
 
 -- i would rather store things here as little as possible
 -- tags are only good for read-only data and plain lua primitives tho
@@ -58,6 +58,7 @@ end
 
 local function make_dock_status(parent, dock)
   make_status_with_diode(parent, dock)
+  local dock_info = linklib.dock_info(dock)
 
   local preview = parent
     .add{
@@ -73,14 +74,27 @@ local function make_dock_status(parent, dock)
   preview.style.minimal_height = 192
   preview.entity = dock
 
+  local other_dock_row = parent.add{
+    type="flow", layout="horizontal"
+  }
+  other_dock_row.style.vertical_align = "center"
+  
   local other_dock = linklib.find_linked_dock(dock)
   local caption
   if other_dock then
-    caption = {"pkspd-gui.yes-docked", tostring(other_dock)}
+    caption = {"pkspd-gui.yes-docked", other_dock.surface.platform.name}
   else
     caption = {"pkspd-gui.not-docked"}
   end
-  parent.add{type="label", caption=caption}
+  other_dock_row.add{type="label", caption=caption}
+  local spacer = other_dock_row.add{type="empty-widget"}
+  spacer.style.horizontally_stretchable = true
+
+  local undock_button = other_dock_row.add{
+    type="button", name="pkspd_undock",
+    caption={"pkspd-gui.undock"}
+  }
+  undock_button.enabled = (dock_info["mode"] == "manual" and other_dock ~= nil)
 end
 
 local function make_auto_circuit_control(parent)
@@ -96,10 +110,12 @@ local function make_auto_circuit_control(parent)
     type="sprite", sprite="info",
     tooltip={"pkspd-gui.autodock-signal-tt"}
   }
-  elt.add{
+  local signal_picker = elt.add{
     type="choose-elem-button", name="pkspd_dock_autodock_signal",
     elem_type="signal"
   }
+  -- you CAN NOT put a little number in the bottom-right-hand corner
+  -- due to W O K E
 end
 
 local function make_manual_dock_popdown(button)
@@ -117,9 +133,10 @@ local function make_manual_dock_popdown(button)
   -- Put dock names on the left, preview on the right
   local new_frame = popdown_holder.add{
     type="frame", direction="horizontal",
-    name = "pkspd_manual_dock_popdown",
+    name="pkspd_manual_dock_popdown",
     style="inset_frame_container_frame"
   }
+  extra_data(button.player_index)["manual_dock_popdown"] = new_frame
   new_frame.style.horizontally_stretchable = true
 
   local docks_list_frame = new_frame
@@ -173,38 +190,47 @@ local function make_manual_dock_popdown(button)
   extra_data(button.player_index)["do_the_dock_button"] = do_the_dock_button
 end
 
-handler_lib.events[defines.events.on_gui_opened] = function(evt)
+local function make_whole_gui(evt)
   if evt.gui_type ~= defines.gui_type.entity
       or not evt.entity
       or evt.entity.name ~= "pkspd-platform-dock"
   then
     return
   end
-
-  local dock = evt.entity
-
   local player = game.get_player(evt.player_index)
   if not player then return end
 
-  local main_frame = ui_lib.new_main_frame(player, dock.prototype.localised_name)
-  main_frame.tags = {tid=dock.unit_number}
+  local dock = evt.entity
+  local dock_info = linklib.dock_info(dock)
+
+  local main_frame = ui_lib.new_main_frame(
+    player, "pkspd_dock", dock.prototype.localised_name, {tid = dock.unit_number}
+  )
 
   local main_content = main_frame.add{
     type="frame", direction="vertical",
     style="entity_frame"
   }
+  local extra = extra_data(player)
 
-  make_dock_status(main_content, dock)
+  local status_wrap = main_content.add{
+    type="flow", name="pkspd_status_wrapper", direction="vertical",
+    style="two_module_spacing_vertical_flow"
+  }
+  extra["status_wrapper"] = status_wrap
+  make_dock_status(status_wrap, dock)
 
   main_content.add{type="line"}
 
+  local side = (dock_info["mode"] == "manual") and "left" or "right"
   local auto_manual_switch = main_content.add{
     type="switch",
     name="pkspd_dock_auto_manual_switch",
-    left_label_caption={"pkspd-gui.automatic-mode"},
-    right_label_caption={"pkspd-gui.manual-mode"},
+    left_label_caption={"pkspd-gui.manual-mode"},
+    right_label_caption={"pkspd-gui.automatic-mode"},
+    switch_state=side
   }
-  extra_data(player)["auto_manual_switch"] = auto_manual_switch
+  extra["auto_manual_switch"] = auto_manual_switch
 
   make_auto_circuit_control(main_content)
 
@@ -218,7 +244,29 @@ handler_lib.events[defines.events.on_gui_opened] = function(evt)
     name="pkspd_dock_manual_popdown_button",
     caption={"pkspd-gui.manual-dock"},
   }
+  extra["manual_popdown_button"] = manual_popdown_button
   manual_popdown_button.style.horizontally_stretchable = true
+  manual_popdown_button.enabled = (dock_info["mode"] == "manual")
+
+  dock_ui.update_ui(main_frame)
+end
+
+-- Handlers
+
+local function handle_undock(button)
+  local main_frame = ui_lib.find_parent_main_frame(button)
+  local dock = game.get_entity_by_unit_number(main_frame.tags["tid"])
+  linklib.unlink_dock(dock)
+  dock_ui.update_ui(main_frame)
+end
+
+local function handle_auto_manual_switch(switch)
+  local mode = (switch.switch_state == "left") and "manual" or "automatic"
+  local dock = game.get_entity_by_unit_number(
+    ui_lib.find_parent_main_frame(switch).tags["tid"]
+  )
+  local dock_info = linklib.dock_info(dock)
+  dock_info.mode = mode
 end
 
 local function handle_dock_selection(button)
@@ -254,18 +302,20 @@ local function handle_do_dock(elt)
   local main_frame = ui_lib.find_parent_main_frame(elt)
   local player = game.get_player(elt.player_index)
 
-  -- Force manual control so it doesn't instantly try to undock
-  extra_data(player)["auto_manual_switch"].switch_state = "right"
-
   local this_dock = game.get_entity_by_unit_number(
     main_frame.tags["tid"]
   )
-  local that_dock = extra_data(player)["picked_manual_dock"]
+  -- Force manual control so it doesn't instantly try to undock
+  linklib.dock_info(this_dock)["mode"] = "manual"
+
+  local extras = extra_data(player)
+  local that_dock = extras["picked_manual_dock"]
   if not that_dock then
     player.print("Somehow pressed the button without picking a dock?!")
     main_frame.destroy()
     return
   end
+  linklib.dock_info(that_dock)["mode"] = "manual"
 
   local err = linklib.link_docks(this_dock, that_dock)
   if err then
@@ -278,14 +328,49 @@ local function handle_do_dock(elt)
   --     position=dock.position
   --   }
   -- end
-  main_frame.destroy()
+  extras["manual_dock_popdown"].destroy()
+  dock_ui.update_ui(main_frame)
 end
 
-handler_lib.events[defines.events.on_gui_click] = function(event)
-  local elt = event.element
-  if not elt then return end
+dock_ui.update_uis = function()
+  for _,player in pairs(game.connected_players) do
+    local gui = player.gui.screen["pkspd_dock"]
+    if gui then dock_ui.update_ui(gui) end
+  end
+end
+dock_ui.update_ui = function(gui)
+  local dock = game.get_entity_by_unit_number(gui.tags["tid"])
+  if not dock then
+    gui.destroy()
+    return
+  end
+  local dock_info = linklib.dock_info(dock)
+  local other_dock = linklib.find_linked_dock(dock)
 
-  if elt.name == "pkspd_dock_manual_popdown_button" then
+  local extra = extra_data(gui.player_index)
+  local status_wrap = extra["status_wrapper"]
+  status_wrap.clear()
+  make_dock_status(status_wrap, dock)
+
+  local mode = dock_info["mode"]
+  local side = (mode == "manual") and "left" or "right"
+  extra["auto_manual_switch"].switch_state = side
+  extra["manual_popdown_button"].enabled =
+    (mode == "manual" and other_dock == nil)
+
+  -- TODO: updating dock list in real time
+end
+
+dock_ui.handler_lib.events[defines.events.on_gui_opened] = make_whole_gui
+dock_ui.handler_lib.events[defines.events.on_gui_click] = function(event)
+  local elt = event.element
+  if not elt or not elt.valid then return end
+
+  if elt.name == "pkspd_dock_auto_manual_switch" then
+    handle_auto_manual_switch(elt)
+  elseif elt.name == "pkspd_undock" then
+    handle_undock(elt)
+  elseif elt.name == "pkspd_dock_manual_popdown_button" then
     make_manual_dock_popdown(elt)
   elseif elt.tags["pkspd_dock_line"] then
     handle_dock_selection(elt)
@@ -293,11 +378,7 @@ handler_lib.events[defines.events.on_gui_click] = function(event)
     handle_do_dock(elt)
   end
 end
-
-handler_lib.events[defines.events.on_gui_closed] = function(event)
-  -- if event.element and event.element.name == "pkspd_dock_main_frame" then
-  --   event.element.destroy()
-  -- end
+dock_ui.handler_lib.events[defines.events.on_gui_closed] = function(event)
 end
 
-return handler_lib
+return dock_ui

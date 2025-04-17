@@ -11,7 +11,6 @@ local function spawn_helper_entities(evt)
   end
 
   entity.rotatable = false
-
   -- in, out
   -- resources travel clockwise
   local belt_poses_table = {
@@ -64,6 +63,9 @@ local function spawn_helper_entities(evt)
     "Input " .. tostring(belt_in) .. 
     "; output " .. tostring(belt_out) ..
     "; controller " .. tostring(controller))
+
+  local dock_info = linklib.dock_info(entity)
+  dock_info["mode"] = "manual"
 end
 
 local function remove_dock(evt)
