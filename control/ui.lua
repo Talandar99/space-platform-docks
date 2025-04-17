@@ -21,6 +21,15 @@ local function extra_data(player)
   return storage.dock_gui_infos[player_id]
 end
 
+local function dock_info_extra(element)
+  local dock = game.get_entity_by_unit_number(
+    ui_lib.find_parent_main_frame(element).tags["tid"]
+  )
+  local dock_info = linklib.dock_info(dock)
+  local extra = extra_data(element.player_index)
+  return dock, dock_info, extra
+end
+
 local STATUS_LOOKUP = {}
 for stat, number in pairs(defines.entity_status) do
   STATUS_LOOKUP[number] = stat:gsub("_", "-")
@@ -98,6 +107,7 @@ local function make_dock_status(parent, dock)
 end
 
 local function make_auto_circuit_control(parent)
+  local _, info, _ = dock_info_extra(parent)
   local elt = parent.add{
     type="flow", direction="horizontal",
     style="player_input_horizontal_flow"
@@ -112,8 +122,9 @@ local function make_auto_circuit_control(parent)
   }
   local signal_picker = elt.add{
     type="choose-elem-button", name="pkspd_dock_autodock_signal",
-    elem_type="signal"
+    elem_type="signal",
   }
+  signal_picker.elem_value = info["autodock_frequency"]
   -- you CAN NOT put a little number in the bottom-right-hand corner
   -- due to W O K E
 end
@@ -269,6 +280,11 @@ local function handle_auto_manual_switch(switch)
   dock_info.mode = mode
 end
 
+local function handle_autodock_picker(picker)
+  local _, dock_info, _ = dock_info_extra(picker)
+  dock_info["autodock_frequency"] = picker.elem_value
+end
+
 local function handle_dock_selection(button)
   button.toggled = true
   local for_dock = button.tags["for_dock"]
@@ -378,7 +394,12 @@ dock_ui.handler_lib.events[defines.events.on_gui_click] = function(event)
     handle_do_dock(elt)
   end
 end
-dock_ui.handler_lib.events[defines.events.on_gui_closed] = function(event)
+dock_ui.handler_lib.events[defines.events.on_gui_elem_changed] = function(event)
+  local elt = event.element
+  if not elt or not elt.valid then return end
+  if elt.name == "pkspd_dock_autodock_signal" then
+    handle_autodock_picker(elt)
+  end
 end
 
 return dock_ui
