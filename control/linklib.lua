@@ -193,19 +193,6 @@ linklib.link_docks = function(dock_a, dock_b)
     )
   end
 
-<<<<<<< HEAD
-  -- Link up fluidboxen
-  -- local fb_a_in = dock_a.fluidbox[1]
-  -- local fb_a_out = dock_a.fluidbox[2]
-  -- local fb_b_in = dock_b.fluidbox[1]
-  -- local fb_b_out = dock_b.fluidbox[2]
-  -- fb_a_in.get_pipe_connections(1).target = fb_b_out.get_pipe_connections(1)
-  -- fb_b_in.get_pipe_connections(1).target = fb_a_out.get_pipe_connections(1)
-  -- dock_a.fluidbox[1] = fb_a_in
-  -- dock_a.fluidbox[2] = fb_a_out
-  -- dock_b.fluidbox[1] = fb_b_in
-  -- dock_b.fluidbox[2] = fb_b_out
-=======
   -- Cosmetics
   dock_a.custom_status = {
     diode = defines.entity_status_diode.green,
@@ -215,7 +202,6 @@ linklib.link_docks = function(dock_a, dock_b)
     diode = defines.entity_status_diode.green,
     label = {"pkspd-gui.status-docked"},
   }
->>>>>>> 0164292 (hook up fluid, although the autodock mode isn't saved)
 
   -- Associate in storage dict
   local info_a = linklib.dock_info(dock_a)
