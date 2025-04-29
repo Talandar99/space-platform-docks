@@ -1,6 +1,18 @@
 require "__core__/lualib/util"
 
-local linklib = {}
+local linklib = {
+  stats_lookup = {},
+  diode2sprite = {},
+}
+
+for stat, number in pairs(defines.entity_status) do
+  linklib.stats_lookup[number] = stat:gsub("_", "-")
+end
+linklib.diode2sprite = {
+  [defines.entity_status_diode.green] = "status_working",
+  [defines.entity_status_diode.yellow] = "status_yellow",
+  [defines.entity_status_diode.red] = "status_not_working",
+}
 
 linklib.can_platform_link = function(platform)
   local ok =
@@ -11,6 +23,13 @@ linklib.can_platform_link = function(platform)
 
   -- squish to boolean
   return not not ok
+end
+
+linklib.is_furnace_status_ok = function(entity)
+  local s = entity.status
+  return
+    s == defines.entity_status.normal
+    or s == defines.entity_status.no_ingredients
 end
 
 -- Returns either nil if it's ok, or a localised string error
@@ -71,6 +90,13 @@ linklib.could_link_problem = function(dock_a, dock_b)
     local loc_a = "pkspd-text.mode-" .. a_info["mode"]
     local loc_b = "pkspd-text.mode-" .. b_info["mode"]
     return {"pkspd-text.linkerr-bad-modes", dock_a, loc_a, dock_b, loc_b}
+  end
+
+  if not linklib.is_furnace_status_ok(dock_a) then
+    return tostring(dock_a) .. " had a mechanical problem"
+  end
+  if not linklib.is_furnace_status_ok(dock_b) then
+    return tostring(dock_b) .. " had a mechanical problem"
   end
 
   -- yay!
@@ -152,6 +178,12 @@ linklib.link_docks = function(dock_a, dock_b)
   helpers_a.input_belt.connect_linked_belts(helpers_b.output_belt)
   helpers_b.input_belt.connect_linked_belts(helpers_a.output_belt)
 
+  -- Link pipes
+  local fbs_a = dock_a.fluidbox
+  local fbs_b = dock_b.fluidbox
+  fbs_a.add_linked_connection(1, dock_b, 2)
+  fbs_b.add_linked_connection(1, dock_a, 2)
+
   -- Link wires
   local wires_a = helpers_a.circuit_bridge.get_wire_connectors()
   local wires_b = helpers_b.circuit_bridge.get_wire_connectors()
@@ -161,6 +193,7 @@ linklib.link_docks = function(dock_a, dock_b)
     )
   end
 
+<<<<<<< HEAD
   -- Link up fluidboxen
   -- local fb_a_in = dock_a.fluidbox[1]
   -- local fb_a_out = dock_a.fluidbox[2]
@@ -172,6 +205,17 @@ linklib.link_docks = function(dock_a, dock_b)
   -- dock_a.fluidbox[2] = fb_a_out
   -- dock_b.fluidbox[1] = fb_b_in
   -- dock_b.fluidbox[2] = fb_b_out
+=======
+  -- Cosmetics
+  dock_a.custom_status = {
+    diode = defines.entity_status_diode.green,
+    label = {"pkspd-gui.status-docked"},
+  }
+  dock_b.custom_status = {
+    diode = defines.entity_status_diode.green,
+    label = {"pkspd-gui.status-docked"},
+  }
+>>>>>>> 0164292 (hook up fluid, although the autodock mode isn't saved)
 
   -- Associate in storage dict
   local info_a = linklib.dock_info(dock_a)
@@ -211,6 +255,9 @@ linklib.unlink_dock = function(dock_a)
       wire_a.disconnect_from(wire_b, defines.wire_origin.script)
     end
   end
+
+  dock_a.custom_status = nil
+  dock_b.custom_status = nil
 
   local info_a = linklib.dock_info(dock_a)
   local info_b = linklib.dock_info(dock_b)

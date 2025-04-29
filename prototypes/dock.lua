@@ -5,7 +5,7 @@ local sounds = require "__base__/prototypes/entity/sounds"
 local nice_fluidbox = {
   -- pipe_picture = assembler2pipepictures(),
   pipe_covers = pipecoverspictures(),
-  volume = 0,
+  volume = 10,
   secondary_draw_orders = { north=-1, south=1 },
 }
 
@@ -67,33 +67,50 @@ data:extend{
     },
 
     -- Fluidboxes for teleporting later
-    -- fluid_boxes = {
-    --   util.merge({
-    --     nice_fluidbox,
-    --     {
-    --       production_type = "input",
-    --       pipe_connections = {{
-    --         flow_direction="input",
-    --         direction=defines.direction.south, position={-2.5, 2.5}
-    --       }}
-    --     }
-    --   }),
-    --   util.merge({
-    --     nice_fluidbox,
-    --     {
-    --       production_type = "output",
-    --       pipe_connections = {{
-    --         flow_direction="output",
-    --         direction=defines.direction.south, position={2.5, 2.5}
-    --       }}
-    --     }
-    --   }),
-    -- },
+    fluid_boxes = {
+      util.merge({
+        nice_fluidbox,
+        {
+          production_type = "input",
+          pipe_connections = {
+            {
+              flow_direction="input",
+              direction=defines.direction.south, position={-2.5, 2.5},
+            },
+            {
+              flow_direction="output",
+              connection_type="linked",
+              linked_connection_id = 1,
+              direction=defines.direction.north, position={-2.5, 0},
+            }
+          }
+        },
+      }),
+      util.merge({
+        nice_fluidbox,
+        {
+          production_type = "output",
+          pipe_connections = {
+            {
+              flow_direction="output",
+              direction=defines.direction.south, position={2.5, 2.5}
+            },
+            {
+              flow_direction="input",
+              connection_type="linked",
+              linked_connection_id = 2,
+              direction=defines.direction.north, position={2.5, 0},
+            }
+          }
+        }
+      }),
+    },
 
     circuit_wire_max_distance = default_circuit_wire_max_distance,
     circuit_connector = dock_aux.circuit_connectors,
 
-    graphics_set = dock_aux.graphics,
+    -- graphics_set = dock_aux.graphics,
+    integration_patch = dock_aux.graphics,
     open_sound = sounds.metal_large_open,
     close_sound = sounds.metal_large_close,
 

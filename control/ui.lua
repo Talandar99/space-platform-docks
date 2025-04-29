@@ -30,15 +30,6 @@ local function dock_info_extra(element)
   return dock, dock_info, extra
 end
 
-local STATUS_LOOKUP = {}
-for stat, number in pairs(defines.entity_status) do
-  STATUS_LOOKUP[number] = stat:gsub("_", "-")
-end
-local DIODE2SPRITE = {
-  [defines.entity_status_diode.green] = "status_working",
-  [defines.entity_status_diode.yellow] = "status_yellow",
-  [defines.entity_status_diode.red] = "status_not_working",
-}
 local function make_status_with_diode(parent, dock)
   local ui = parent.add{type="flow", direction="horizontal"}
 
@@ -48,7 +39,7 @@ local function make_status_with_diode(parent, dock)
     status_name = dock.custom_status.label
     diode_color = dock.custom_status.diode
   else
-    status_name = {"entity-status." ..  STATUS_LOOKUP[dock.status] }
+    status_name = {"entity-status." ..  linklib.stats_lookup[dock.status] }
     -- AUGH todo
     diode_color = defines.entity_status_diode.green
   end
@@ -56,7 +47,7 @@ local function make_status_with_diode(parent, dock)
   ui.add{
     type="sprite", style="status_image",
     -- https://lua-api.factorio.com/latest/concepts/SpritePath.html
-    sprite="utility/" .. DIODE2SPRITE[diode_color],
+    sprite="utility/" .. linklib.diode2sprite[diode_color],
     
   }
   ui.add{
@@ -103,7 +94,7 @@ local function make_dock_status(parent, dock)
     type="button", name="pkspd_undock",
     caption={"pkspd-gui.undock"}
   }
-  undock_button.enabled = (dock_info["mode"] == "manual" and other_dock ~= nil)
+  undock_button.enabled = (other_dock ~= nil)
 end
 
 local function make_auto_circuit_control(parent)
@@ -271,6 +262,7 @@ local function handle_undock(button)
   local main_frame = ui_lib.find_parent_main_frame(button)
   local dock = game.get_entity_by_unit_number(main_frame.tags["tid"])
   linklib.unlink_dock(dock)
+  linklib.dock_info(dock)["mode"] = "manual"
   dock_ui.update_ui(main_frame)
 end
 
@@ -368,9 +360,10 @@ dock_ui.update_ui = function(gui)
   make_dock_status(status_wrap, dock)
 
   local mode = dock_info["mode"]
+  local mechanical_ok = linklib.is_furnace_status_ok(dock)
   local side = (mode == "manual") and "left" or "right"
   extra["auto_manual_switch"].switch_state = side
-  local mpd_enabled = other_dock == nil
+  local mpd_enabled = other_dock == nil and mechanical_ok
   extra["manual_popdown_button"].enabled = mpd_enabled
   extra["manual_popdown_button"].tooltip =
     (not mpd_enabled) and {"pkspd-gui.tt-cannot-manual-dock-twice"} or nil
