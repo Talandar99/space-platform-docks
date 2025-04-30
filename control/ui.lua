@@ -2,7 +2,6 @@
 
 local ui_lib = require "control/ui-lib"
 local linklib = require "control/linklib"
-local autodock = require "control/autodock"
 
 local dock_ui = {handler_lib = {events={}}}
 
@@ -30,6 +29,16 @@ local function dock_info_extra(element)
   return dock, dock_info, extra
 end
 
+local function status2color(status)
+  if status == defines.entity_status.working
+    or status == defines.entity_status.normal
+  then
+    return defines.entity_status_diode.green
+  else
+    return defines.entity_status_diode.red
+  end
+end
+
 local function make_status_with_diode(parent, dock)
   local ui = parent.add{type="flow", direction="horizontal"}
 
@@ -40,8 +49,7 @@ local function make_status_with_diode(parent, dock)
     diode_color = dock.custom_status.diode
   else
     status_name = {"entity-status." ..  linklib.stats_lookup[dock.status] }
-    -- AUGH todo
-    diode_color = defines.entity_status_diode.green
+    diode_color = status2color(dock.status)
   end
 
   ui.add{
@@ -273,7 +281,7 @@ local function handle_auto_manual_switch(switch)
   if mode == "manual" then
     linklib.unlink_dock(dock)
   else
-    autodock.try_autodock(dock)
+    linklib.try_autodock(dock)
   end
 end
 

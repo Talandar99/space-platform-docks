@@ -29,7 +29,39 @@ linklib.is_furnace_status_ok = function(entity)
   local s = entity.status
   return
     s == defines.entity_status.normal
+    or s == defines.entity_status.working
     or s == defines.entity_status.no_ingredients
+end
+
+-- Return a CustomEntityStatus or nil
+linklib.vanity_status = function(dock)
+  if not linklib.is_furnace_status_ok(dock) then
+    return nil
+  end
+
+  local green, yellow, red = defines.entity_status_diode.green, 
+    defines.entity_status_diode.yellow,
+    defines.entity_status_diode.red
+  local info = linklib.dock_info(dock)
+  if not info then
+    -- huh?
+    return {diode = green, label = {"pkspd-text.status-ready"}}
+  end
+
+  if info.other_dock then
+    return {diode = green, label = {"pkspd-text.status-docked"}}
+  end
+
+  if not linklib.can_platform_link(dock.surface.platform) then
+    return {diode = yellow, label = {"pkspd-text.status-platform-moving"}}
+  end
+
+  -- All good i guess
+  if info.mode == "manual" then
+    return {diode = green, label = {"pkspd-text.status-ready"}}
+  else
+    return {diode = green, label = {"pkspd-text.status-circuit-listening"}}
+  end
 end
 
 -- Returns either nil if it's ok, or a localised string error
@@ -276,6 +308,42 @@ linklib.find_linked_dock = function(dock)
   else
     return other
   end
+end
+
+local function get_circuit_value(dock, freq)
+  return dock.get_signal(
+    freq,
+    defines.wire_connector_id.circuit_red,
+    defines.wire_connector_id.circuit_green
+  )
+end
+linklib.try_autodock = function(dock)
+  local info = linklib.dock_info(dock)
+
+  local freq = info["autodock_frequency"]
+  if freq then
+    local my_freq_value = get_circuit_value(dock, freq)
+    if my_freq_value ~= 0 then
+      -- game.print("Searching for docks with " 
+      --   .. tostring(freq) .. "=" .. my_freq_value)
+      local ok_docks = linklib.find_linkable_docks(dock)
+      for _,other in ipairs(ok_docks) do
+        local other_info = linklib.dock_info(other)
+        local other_freq = other_info["autodock_frequency"]
+        if other_freq and util.table.compare(other_freq, freq)
+            and get_circuit_value(other, freq) == my_freq_value
+        then
+          local err = linklib.link_docks(dock, other)
+          if err then
+            game.print({"", "autodock failed? ", err})
+          end
+          return
+        end
+      end
+    end
+  end
+
+  linklib.unlink_dock(dock)
 end
 
 return linklib
